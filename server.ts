@@ -17,7 +17,7 @@ let groups = [
   { id: 'g2', name: 'Python Kids - Робототехника', subject: 'Программирование', teacherName: 'Дмитрий Иванов', schedule: 'Вт, Чт 17:30', studentsCount: 3, engagementRate: 92, questsCompleted: 3 }
 ];
 
-let students = [
+let students: any[] = [
   { id: 's1', name: 'Александр Смирнов', groupName: 'Английский язык - Starter B1', avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=120', level: 4, xp: 1250, parentName: 'Ольга Смирнова', parentPhone: '+7 (911) 234-56-78', telegramId: '@olga_smirnova_edu', attendanceRate: 95, generalScore: 4.8, riskRating: 'low', mentorId: 'm1', academicRole: 'Лидер команды', engagementRate: 94 },
   { id: 's2', name: 'Виктория Кузнецова', groupName: 'Английский язык - Starter B1', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=120', level: 3, xp: 820, parentName: 'Андрей Кузнецов', parentPhone: '+7 (921) 987-65-43', telegramId: '@kuznetsov_family', attendanceRate: 90, generalScore: 4.2, riskRating: 'low', mentorId: 'm2', academicRole: 'Коммуникатор', engagementRate: 86 },
   { id: 's3', name: 'Артем Петров', groupName: 'Английский язык - Starter B1', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=120', level: 2, xp: 450, parentName: 'Мария Петрова', parentPhone: '+7 (905) 555-44-33', telegramId: '@artem_mom_petrova', attendanceRate: 75, generalScore: 3.5, riskRating: 'high', mentorId: 'm3', academicRole: 'Исследователь', engagementRate: 58 },
@@ -1767,10 +1767,17 @@ app.post('/api/reports', async (req, res) => {
   let geminiSuccess = false;
   let geminiErrorMessage = '';
 
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY') {
+  const keyFromHeader = req.headers['x-gemini-key'] as string;
+  const customGeminiKey = (keyFromHeader && keyFromHeader !== 'undefined' && keyFromHeader.trim().length > 0)
+    ? keyFromHeader.trim()
+    : (req.body.customGeminiKey && req.body.customGeminiKey.trim().length > 0 ? req.body.customGeminiKey.trim() : null);
+
+  const activeGeminiKey = customGeminiKey || (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY' ? process.env.GEMINI_API_KEY : null);
+
+  if (activeGeminiKey) {
     try {
       const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey: activeGeminiKey,
         httpOptions: {
           headers: { 'User-Agent': 'aistudio-build' }
         }
@@ -1862,6 +1869,51 @@ ${groupStudents.map(s => `- ${s.name} (id: ${s.id})`).join('\n')}
     studentsProgress,
     notifications
   });
+});
+
+// Endpoint to check custom Gemini API keys status
+app.post('/api/check-custom-gemini-key', async (req, res) => {
+  const { customGeminiKey } = req.body;
+  
+  if (!customGeminiKey || customGeminiKey.trim().length === 0) {
+    return res.status(400).json({ success: false, error: 'Пожалуйста, введите корректный ключ API.' });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey: customGeminiKey.trim(),
+      httpOptions: {
+        headers: { 'User-Agent': 'aistudio-build-validator' }
+      }
+    });
+
+    const prompt = 'Напиши короткую ободряющую фразу на русском языке для детей, которые учат программирование или английский (максимум 5-8 слов). Будь лаконичен.';
+    
+    const result = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+      config: {
+        temperature: 0.7,
+        maxOutputTokens: 25
+      }
+    });
+
+    if (result && result.text) {
+      return res.json({ 
+        success: true, 
+        message: 'Проверка успешна! Ключ API активен и готов к работе.',
+        quote: result.text.trim()
+      });
+    } else {
+      throw new Error('Модель вернула пустой ответ.');
+    }
+  } catch (err: any) {
+    console.error('Error testing custom Gemini key:', err);
+    return res.status(200).json({ 
+      success: false, 
+      error: err.message || 'Ошибка проверки авторизации Gemini API. Убедитесь, что токен верен.' 
+    });
+  }
 });
 
 // Helper to lazy-initialize student mentor stats

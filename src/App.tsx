@@ -15,7 +15,8 @@ import {
   HelpCircle,
   Layers,
   MessageSquare,
-  Volume2
+  Volume2,
+  Github
 } from 'lucide-react';
 
 import { Group, Student, StudentProgress, MentorCharacter, LessonReport, apiIntegrations, Notification, UserRole, GroupQuest, PersonalChallenge, PeerHelp } from './types';
@@ -27,11 +28,13 @@ import StudentDashboard from './components/StudentDashboard';
 import TelegramBotSimulator from './components/TelegramBotSimulator';
 import AuthPortal, { AuthUser } from './components/AuthPortal';
 import SamrukDocPortal from './components/SamrukDocPortal';
+import GitHubPublishModal from './components/GitHubPublishModal';
 
 export default function App() {
   const [activeRole, setActiveRole] = useState<UserRole>('admin');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [showSamrukPortal, setShowSamrukPortal] = useState(false);
+  const [showGitHubModal, setShowGitHubModal] = useState(false);
 
   const handleLoginSuccess = (user: AuthUser, token: string) => {
     setCurrentUser(user);
@@ -124,9 +127,15 @@ export default function App() {
   }) => {
     setIsSyncing(true);
     try {
+      const customKey = localStorage.getItem('custom_gemini_api_key') || '';
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (customKey) {
+        headers['X-Gemini-Key'] = customKey;
+      }
+
       const res = await fetch('/api/reports', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(reportData)
       });
       const data = await res.json();
@@ -401,6 +410,14 @@ export default function App() {
           {/* Role selector dropdown/tab */}
           <div className="flex items-center gap-2.5">
             <button
+              onClick={() => setShowGitHubModal(true)}
+              className="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-white font-extrabold text-[11px] px-3.5 py-1.5 rounded-xl transition shadow-md flex items-center gap-1.5 cursor-pointer"
+              title="Экспорт в GitHub & Настройки Публикации"
+            >
+              <Github className="w-3.5 h-3.5 text-indigo-400" />
+              <span>GitHub & Публикация ИИ 💻</span>
+            </button>
+            <button
               onClick={() => setShowSamrukPortal(true)}
               className="bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-600 hover:to-indigo-700 text-white font-extrabold text-[11px] px-3.5 py-1.5 rounded-xl transition shadow-md shadow-indigo-500/10 flex items-center gap-1.5 cursor-pointer border border-indigo-500/10"
             >
@@ -615,6 +632,12 @@ export default function App() {
           activeStudentId={students.find(s => s.name === currentUser?.name)?.id || 's1'}
           activeMentorId={students.find(s => s.name === currentUser?.name)?.mentorId || 'm1'}
           onSelectMentor={handleSelectMentor}
+        />
+      )}
+
+      {showGitHubModal && (
+        <GitHubPublishModal 
+          onClose={() => setShowGitHubModal(false)} 
         />
       )}
     </div>
