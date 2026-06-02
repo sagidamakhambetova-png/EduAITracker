@@ -1,0 +1,6 @@
+{
+  "name": "AI EdCenter Tracker",
+  "description": "Modern educational center track & analytics engine powered by AI. Translates teacher voice updates into personalized student performance logs, custom recommendations, parental dashboard, and Telegram alert systems.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
